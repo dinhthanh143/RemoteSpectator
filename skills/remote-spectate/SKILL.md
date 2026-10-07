@@ -54,13 +54,26 @@ Check if `.remoteSpectator.json` exists in the project workspace root:
 
 ### Step 2: Multi-Service Liveness Verification & Bootstrapping
 
-1. **Check Liveness of All Required Ports**:
-   - Ping the detected frontend URL/port and backend URL/port using `spectator_ping(url=...)` or PowerShell TCP check.
+1. **Mechanical Port Verification (First Pass)**:
+   - Check every required service port (both Backend and Frontend) using `spectator_ping(url=service.healthcheck or "http://127.0.0.1:<port>")` or PowerShell `Get-NetTCPConnection`.
+
 2. **Boot Missing Services in Sequence**:
-   - **Order Matters**: **Always boot the Backend API first**, wait 2–3s for its database connections/routes to initialize, then boot the Frontend.
-   - Run startup commands using `run_command` with `IsDaemon: true` inside their respective `cwd`.
-3. **Confirm Port Health Before Capturing**:
-   - Verify both ports respond before taking the snapshot.
+   - **Order Matters**: **Always boot the Backend API first**, then the Frontend.
+   - Run startup commands using `run_command` with `IsDaemon: true` and appropriate `cwd`.
+   - On Windows, if a process terminates prematurely or fails to detach, use background job or launcher so it remains alive.
+
+3. **🛑 CRITICAL VERIFICATION GATE (NO ASSUMPTIONS / NO FAKING STATUS)**:
+   - The agent is **strictly prohibited** from claiming a service is "Running" based merely on seeing initial launch logs. Processes can crash or exit 1 second after boot.
+   - For **every** declared service, you **MUST** run:
+     ```python
+     spectator_ping("http://127.0.0.1:<port>") # or healthcheck URL
+     ```
+   - **Verification Rules**:
+     - ✅ **Pass**: Response starts with `SUCCESS` or `ALIVE_WITH_ERROR` (HTTP 200, 301, 404, etc. confirms the socket is alive and listening).
+     - ❌ **Fail (`UNREACHABLE`)**: If `spectator_ping` returns `UNREACHABLE`, **the service is NOT running**.
+       - Inspect the background task log immediately to diagnose the crash or port conflict.
+       - Re-try or clearly report the exact failure to the user.
+       - **NEVER proceed to take a capture or report the backend is up when `spectator_ping` returned UNREACHABLE!**
 
 ---
 
