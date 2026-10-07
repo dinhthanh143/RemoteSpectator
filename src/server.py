@@ -296,7 +296,7 @@ async def spectator_capture(
         profile=profile
     )
     normalized_path = target_filepath.replace("\\", "/")
-    return f"CAPTURED_SUCCESS: Saved visual snapshot of '{title}' ({url})\nBrowser: {browser} (Profile: {profile or 'Clean/None'})\nPath: {normalized_path}\nAsset Manager UI: http://localhost:49152"
+    return f"CAPTURED_SUCCESS: Saved visual snapshot of '{title}' ({url})\nBrowser: {browser} (Profile: {profile or 'Clean/None'})\nPath: {normalized_path}"
 
 @mcp.tool()
 async def spectator_compare(
@@ -361,7 +361,6 @@ async def spectator_compare(
     if len(session["variants"]) >= 2:
         msg.append(f"- Composite Image: {normalized_composite}")
         
-    msg.append(f"- Asset Manager UI: http://localhost:49152")
     return "\n".join(msg)
 
 def _ensure_ui_server():

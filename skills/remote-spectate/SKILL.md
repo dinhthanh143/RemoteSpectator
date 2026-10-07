@@ -138,7 +138,9 @@ Detect browser and user profile requirements from user prompt:
 
 ### Step 5: Present & Asset Management
 
-- Always include the **Asset Manager UI URL**:
-  > 🔗 **Asset Manager UI:** [http://localhost:49152](http://localhost:49152) — *Browse captures, inspect file sizes, and delete assets directly from disk to prevent bloat.*
+- **UI Dashboard Announcement (First-Time Only)**:
+  - If this is the **first time** running `/remote-spectate` on this project (e.g. `.remoteSpectator.json` was just created during this turn), display the dashboard notice once:
+    > 🔗 **Asset Manager UI:** [http://localhost:49152](http://localhost:49152) — *Browse captures, inspect file sizes, and delete assets directly from disk.*
+  - On subsequent invocations for the project, **omit this notice** to keep output clean and concise.
 - Provide clickable links to saved capture artifact(s).
 - Inspect layout, alignment, responsiveness, visual contrast, and check that API-dependent widgets aren't rendering empty/broken states.
