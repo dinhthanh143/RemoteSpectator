@@ -1,0 +1,265 @@
+{
+  "type": "CORTEX_STEP_TYPE_USER_INPUT",
+  "status": "CORTEX_STEP_STATUS_DONE",
+  "metadata": {
+    "createdAt": "2026-10-06T16:12:42.218533700Z",
+    "startedAt": "2026-10-06T16:12:42.331707200Z",
+    "completedAt": "2026-10-06T16:12:42.334451Z",
+    "source": "CORTEX_STEP_SOURCE_USER_EXPLICIT",
+    "executionId": "3a09f171-3eae-4424-9c6a-3e46ecb8a813",
+    "sourceTrajectoryStepInfo": {
+      "trajectoryId": "e8e18c3f-1569-4ad6-b71b-ac427ba65caf",
+      "stepIndex": 924,
+      "metadataIndex": 441,
+      "cascadeId": "63491d75-f037-436d-9859-d347c40dd7a1"
+    },
+    "internalMetadata": {
+      "statusTransitions": [
+        {
+          "updatedStatus": "CORTEX_STEP_STATUS_DONE",
+          "timestamp": "2026-10-06T16:12:42.334451Z"
+        }
+      ]
+    },
+    "isInterruptingStep": true
+  },
+  "userInput": {
+    "items": [
+      {
+        "text": "What tools do you currently have available?"
+      }
+    ],
+    "userResponse": "What tools do you currently have available?",
+    "activeUserState": {},
+    "lastUserConfig": {
+      "plannerConfig": {
+        "declarativeMixinConfig": {
+          "promptSections": [
+            {
+              "builtinName": "identity"
+            },
+            {
+              "builtinName": "user_information"
+            },
+            {
+              "builtinName": "mcp_servers"
+            },
+            {
+              "builtinName": "user_rules"
+            },
+            {
+              "builtinName": "skills"
+            },
+            {
+              "builtinName": "subagents"
+            },
+            {
+              "builtinName": "subagent_reminder"
+            },
+            {
+              "builtinName": "messaging"
+            },
+            {
+              "builtinName": "conversation_transcript"
+            },
+            {
+              "builtinName": "artifacts"
+            },
+            {
+              "builtinName": "slash_commands"
+            },
+            {
+              "builtinName": "terminal_sandbox"
+            },
+            {
+              "builtinName": "guidelines"
+            },
+            {
+              "builtinName": "communication_style"
+            }
+          ],
+          "tools": [
+            {
+              "name": "view_file",
+              "builtin": true
+            },
+            {
+              "name": "run_command",
+              "builtin": true
+            },
+            {
+              "name": "manage_task",
+              "builtin": true
+            },
+            {
+              "name": "send_message",
+              "builtin": true
+            },
+            {
+              "name": "schedule",
+              "builtin": true
+            },
+            {
+              "name": "invoke_subagent",
+              "builtin": true
+            },
+            {
+              "name": "define_subagent",
+              "builtin": true
+            },
+            {
+              "name": "manage_subagents",
+              "builtin": true
+            },
+            {
+              "name": "write_to_file",
+              "builtin": true
+            },
+            {
+              "name": "replace_file_content",
+              "builtin": true
+            },
+            {
+              "name": "generate_image",
+              "builtin": true
+            },
+            {
+              "name": "read_url_content",
+              "builtin": true
+            },
+            {
+              "name": "search_web",
+              "builtin": true
+            },
+            {
+              "name": "ask_question",
+              "builtin": true
+            }
+          ],
+          "preInvocationHooks": [
+            {
+              "name": "message_delivery",
+              "builtin": true
+            },
+            {
+              "name": "context_summary",
+              "builtin": true
+            }
+          ],
+          "postInvocationHooks": [
+            {
+              "name": "command_assessor",
+              "builtin": true
+            },
+            {
+              "name": "message_continue_check",
+              "builtin": true
+            },
+            {
+              "name": "terminal_step_check",
+              "builtin": true
+            },
+            {
+              "name": "max_generator_invocations_check",
+              "builtin": true
+            },
+            {
+              "name": "empty_output_continuation_check",
+              "builtin": true
+            },
+            {
+              "name": "force_invocation",
+              "builtin": true
+            },
+            {
+              "name": "no_tool_call_check",
+              "builtin": true
+            }
+          ],
+          "preToolHooks": [
+            {
+              "name": "battle_mode_tool_args",
+              "builtin": true
+            },
+            {
+              "name": "command_assessor",
+              "builtin": true
+            },
+            {
+              "name": "timeout_long_running_search_command",
+              "builtin": true
+            }
+          ],
+          "postToolHooks": [
+            {
+              "name": "command_assessor",
+              "builtin": true
+            }
+          ],
+          "stopHooks": [
+            {
+              "name": "request_artifact_feedback_stop",
+              "builtin": true
+            },
+            {
+              "name": "goal_stop",
+              "builtin": true
+            },
+            {
+              "name": "idle_subagent_guard",
+              "builtin": true
+            }
+          ],
+          "toolDecorators": [
+            {
+              "name": "output_truncation",
+              "builtin": true
+            },
+            {
+              "name": "augmented_intent",
+              "builtin": true
+            }
+          ],
+          "forceDisableFundamentalComponents": true
+        },
+        "customizationDiscoveryConfig": {
+          "skills": {
+            "builtinSkillNames": [
+              "agy-customizations",
+              "antigravity_guide",
+              "generative_ui",
+              "migrate-workflows",
+              "plugin"
+            ]
+          },
+          "agents": {
+            "inheritUser": true,
+            "builtinAgentNames": [
+              "self",
+              "research",
+              "browser",
+              "teamwork_preview",
+              "DeepCoder",
+              "DeepInvestigator"
+            ]
+          }
+        },
+        "toolConfig": {
+          "runCommand": {
+            "autoCommandConfig": {
+              "autoExecutionPolicy": "CASCADE_COMMANDS_AUTO_EXECUTION_EAGER"
+            }
+          },
+          "notifyUser": {}
+        },
+        "planModel": "MODEL_PLACEHOLDER_M319",
+        "useAiCredits": false,
+        "supportsLatexRendering": true
+      },
+      "executorConfig": {
+        "useCoreDirect": true
+      },
+      "conversationHistoryConfig": {}
+    }
+  }
+}

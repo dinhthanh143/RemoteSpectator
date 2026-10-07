@@ -1,0 +1,25 @@
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Dependencies & Environments
+.venv/
+env/
+venv/
+node_modules/
+
+# OS and IDE files
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# Captured media & local sessions (user-specific runtime artifacts)
+.spectator/captures/
+.spectator/sessions/
+
+# Temporary files
+*.tmp
+temp/

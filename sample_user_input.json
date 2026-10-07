@@ -1,0 +1,264 @@
+{
+  "items": [
+    {
+      "text": "hi, this is the raw idea of our project, not yet polished. "
+    },
+    {
+      "text": "\n"
+    },
+    {
+      "text": "Give your remote AI coding agent eyes. Automatically capture UI changes, visual diffs, and interaction clips from your local dev server and drop them straight into Telegram or Discord.\n\nThe Elevator Pitch:\nRemote vibe coding from your phone (via Claude Code, Aider, or Cline over Telegram/Discord) works great for backends, but it's completely blind for frontend work. When an agent tweaks a component, you're left guessing if the layout is broken until you get back to your desk.\n\n[Tool Name] is a lightweight local MCP tool / CLI bridge that closes the loop. After your agent modifies frontend code, it automatically:\n\nPings your local dev server (localhost:3000, 5173, etc.).\nUses headless Playwright to capture a Before/After visual diff or a short 3-second interaction clip (modal toggle, button hover, responsive view).\nDrops the image/video directly into your mobile chat as visual proof of the change."
+    },
+    {
+      "text": "\n"
+    },
+    {
+      "text": "so to make this even work first i'd need to have a remote line first... "
+    },
+    {
+      "text": "\n"
+    },
+    {
+      "text": "tell me what are the remote apps there is for this ? i only know telegram, discord."
+    }
+  ],
+  "userResponse": "hi, this is the raw idea of our project, not yet polished. \nGive your remote AI coding agent eyes. Automatically capture UI changes, visual diffs, and interaction clips from your local dev server and drop them straight into Telegram or Discord.\n\nThe Elevator Pitch:\nRemote vibe coding from your phone (via Claude Code, Aider, or Cline over Telegram/Discord) works great for backends, but it's completely blind for frontend work. When an agent tweaks a component, you're left guessing if the layout is broken until you get back to your desk.\n\n[Tool Name] is a lightweight local MCP tool / CLI bridge that closes the loop. After your agent modifies frontend code, it automatically:\n\nPings your local dev server (localhost:3000, 5173, etc.).\nUses headless Playwright to capture a Before/After visual diff or a short 3-second interaction clip (modal toggle, button hover, responsive view).\nDrops the image/video directly into your mobile chat as visual proof of the change.\nso to make this even work first i'd need to have a remote line first... \ntell me what are the remote apps there is for this ? i only know telegram, discord.",
+  "activeUserState": {},
+  "userConfig": {
+    "plannerConfig": {
+      "declarativeMixinConfig": {
+        "promptSections": [
+          {
+            "builtinName": "identity"
+          },
+          {
+            "builtinName": "user_information"
+          },
+          {
+            "builtinName": "mcp_servers"
+          },
+          {
+            "builtinName": "user_rules"
+          },
+          {
+            "builtinName": "skills"
+          },
+          {
+            "builtinName": "subagents"
+          },
+          {
+            "builtinName": "subagent_reminder"
+          },
+          {
+            "builtinName": "messaging"
+          },
+          {
+            "builtinName": "conversation_transcript"
+          },
+          {
+            "builtinName": "artifacts"
+          },
+          {
+            "builtinName": "slash_commands"
+          },
+          {
+            "builtinName": "terminal_sandbox"
+          },
+          {
+            "builtinName": "guidelines"
+          },
+          {
+            "builtinName": "communication_style"
+          }
+        ],
+        "tools": [
+          {
+            "name": "view_file",
+            "builtin": true
+          },
+          {
+            "name": "run_command",
+            "builtin": true
+          },
+          {
+            "name": "manage_task",
+            "builtin": true
+          },
+          {
+            "name": "send_message",
+            "builtin": true
+          },
+          {
+            "name": "schedule",
+            "builtin": true
+          },
+          {
+            "name": "invoke_subagent",
+            "builtin": true
+          },
+          {
+            "name": "define_subagent",
+            "builtin": true
+          },
+          {
+            "name": "manage_subagents",
+            "builtin": true
+          },
+          {
+            "name": "write_to_file",
+            "builtin": true
+          },
+          {
+            "name": "replace_file_content",
+            "builtin": true
+          },
+          {
+            "name": "generate_image",
+            "builtin": true
+          },
+          {
+            "name": "read_url_content",
+            "builtin": true
+          },
+          {
+            "name": "search_web",
+            "builtin": true
+          },
+          {
+            "name": "ask_question",
+            "builtin": true
+          }
+        ],
+        "preInvocationHooks": [
+          {
+            "name": "message_delivery",
+            "builtin": true
+          },
+          {
+            "name": "context_summary",
+            "builtin": true
+          }
+        ],
+        "postInvocationHooks": [
+          {
+            "name": "command_assessor",
+            "builtin": true
+          },
+          {
+            "name": "message_continue_check",
+            "builtin": true
+          },
+          {
+            "name": "terminal_step_check",
+            "builtin": true
+          },
+          {
+            "name": "max_generator_invocations_check",
+            "builtin": true
+          },
+          {
+            "name": "empty_output_continuation_check",
+            "builtin": true
+          },
+          {
+            "name": "force_invocation",
+            "builtin": true
+          },
+          {
+            "name": "no_tool_call_check",
+            "builtin": true
+          }
+        ],
+        "preToolHooks": [
+          {
+            "name": "battle_mode_tool_args",
+            "builtin": true
+          },
+          {
+            "name": "command_assessor",
+            "builtin": true
+          },
+          {
+            "name": "timeout_long_running_search_command",
+            "builtin": true
+          }
+        ],
+        "postToolHooks": [
+          {
+            "name": "command_assessor",
+            "builtin": true
+          }
+        ],
+        "stopHooks": [
+          {
+            "name": "request_artifact_feedback_stop",
+            "builtin": true
+          },
+          {
+            "name": "goal_stop",
+            "builtin": true
+          },
+          {
+            "name": "idle_subagent_guard",
+            "builtin": true
+          }
+        ],
+        "toolDecorators": [
+          {
+            "name": "output_truncation",
+            "builtin": true
+          },
+          {
+            "name": "augmented_intent",
+            "builtin": true
+          }
+        ],
+        "forceDisableFundamentalComponents": true
+      },
+      "customizationDiscoveryConfig": {
+        "skills": {
+          "builtinSkillNames": [
+            "agy-customizations",
+            "antigravity_guide",
+            "generative_ui",
+            "migrate-workflows"
+          ]
+        },
+        "agents": {
+          "inheritUser": true,
+          "builtinAgentNames": [
+            "self",
+            "research",
+            "browser",
+            "teamwork_preview",
+            "DeepCoder",
+            "DeepInvestigator"
+          ]
+        }
+      },
+      "toolConfig": {
+        "runCommand": {
+          "autoCommandConfig": {
+            "autoExecutionPolicy": "CASCADE_COMMANDS_AUTO_EXECUTION_EAGER"
+          }
+        },
+        "notifyUser": {}
+      },
+      "planModel": "MODEL_PLACEHOLDER_M320",
+      "useAiCredits": false,
+      "supportsLatexRendering": true
+    },
+    "executorConfig": {
+      "useCoreDirect": true
+    },
+    "conversationHistoryConfig": {}
+  },
+  "userAgentSpec": {
+    "builtinAgent": {
+      "defaultAgent": {
+        "isGoogle": false,
+        "isInteractive": true
+      }
+    }
+  }
+}
