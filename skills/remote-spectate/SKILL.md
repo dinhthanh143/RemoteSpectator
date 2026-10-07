@@ -18,32 +18,36 @@ Spectator must ensure the **entire application stack** is alive before taking vi
 
 ---
 
-### Step 1: Detect Full Stack Dependencies & Ports
+### Step 1: Check Cached Manifest OR Auto-Discover Stack
 
-Execute stack discovery in this exact priority order:
+Execute discovery in this exact priority order:
 
-1. **Explicit Config (`.spectator.json` or `.spectatorrc` in workspace root)**:
-   - If present, parse defined services (e.g., `services.backend`, `services.frontend`), their start commands, ports, and healthcheck URLs.
-2. **Container / Multi-Process Orchestration**:
+#### ⚡ Fast Path: Project Cache (`.remoteSpectator.json`)
+Check if `.remoteSpectator.json` exists in the project workspace root:
+- **If Found**: Read `services` directly (ports, start commands, directories, and healthchecks). Skip all heuristic file scanning!
+- **If Not Found or Invalid**: Proceed to the Universal Discovery Heuristic below.
+
+#### 🔍 Discovery Heuristic (Cold Start / First Run):
+1. **Container / Multi-Process Orchestration**:
    - Check `docker-compose.yml` / `compose.yaml` or `Procfile`.
    - If services are defined and not running, run `docker compose up -d` or the designated process manager.
-3. **Frontend API Dependency & Proxy Cross-Reference**:
+2. **Frontend API Dependency & Proxy Cross-Reference**:
    - Inspect frontend configuration:
      - Vite: `vite.config.ts` / `vite.config.js` (`server.proxy` targeting ports like `http://localhost:8000` or `3001`).
      - Next.js: `next.config.js` (`rewrites`).
      - Environment files: `.env`, `.env.development`, `.env.local` looking for `VITE_API_URL`, `NEXT_PUBLIC_API_URL`, `REACT_APP_API_URL`, `BACKEND_URL`, etc.
    - If a backend URL/port is referenced (e.g. `localhost:8000`), **mark that backend port as a required prerequisite**.
-4. **Decoupled / Multi-Folder Monorepo Discovery**:
+3. **Decoupled / Multi-Folder Monorepo Discovery**:
    - Check for parallel service folders:
      - Backend candidates: `backend/`, `api/`, `server/`, `*-api/`, `service/`
      - Frontend candidates: `frontend/`, `web/`, `client/`, `ui/`, `*-ui/`
    - If both exist:
      - Identify Backend startup: `pyproject.toml`, `requirements.txt`, `manage.py`, `pom.xml`, or `package.json` inside backend dir.
      - Identify Frontend startup: `package.json` (`dev`, `start`) inside frontend dir.
-5. **VS Code Tasks (`.vscode/tasks.json` if available)**:
+4. **VS Code Tasks (`.vscode/tasks.json` if available)**:
    - Check for composite stack tasks (e.g. `dependsOn: ["Frontend", "Backend"]` or label containing `Stack` / `Dev Stack`).
    - If present, extract both backend and frontend commands and directories.
-6. **Single Full-Stack Manifest**:
+5. **Single Full-Stack Manifest**:
    - If single root `package.json` with Next.js/Nuxt or single `pyproject.toml`/`manage.py`, run standard root `npm run dev` or framework CLI.
 
 ---
@@ -60,7 +64,39 @@ Execute stack discovery in this exact priority order:
 
 ---
 
-### Step 3: Capture Strategy: Snapshot vs. Multi-Variant Comparison
+### Step 3: Auto-Generate `.remoteSpectator.json` Cache
+
+Immediately after successfully resolving and verifying the active stack on a first run (or if `.remoteSpectator.json` was missing):
+- Automatically create/write `.remoteSpectator.json` in the workspace root with the resolved stack structure:
+  ```json
+  {
+    "version": "1.0",
+    "generated_at": "<ISO_TIMESTAMP>",
+    "services": {
+      "backend": {
+        "cwd": "<relative_or_absolute_dir>",
+        "command": "<backend_start_command>",
+        "port": 8000,
+        "healthcheck": "http://localhost:8000/docs"
+      },
+      "frontend": {
+        "cwd": "<relative_or_absolute_dir>",
+        "command": "<frontend_start_command>",
+        "port": 5173,
+        "healthcheck": "http://localhost:5173"
+      }
+    },
+    "defaults": {
+      "url": "http://localhost:5173/",
+      "viewport": "desktop"
+    }
+  }
+  ```
+- This ensures all future `/remote-spectate` invocations execute instantly with zero guesswork.
+
+---
+
+### Step 4: Capture Strategy: Snapshot vs. Multi-Variant Comparison
 
 Detect browser and user profile requirements from user prompt:
 - Browser: `"chrome" | "brave" | "chromium"`
@@ -100,7 +136,7 @@ Detect browser and user profile requirements from user prompt:
 
 ---
 
-### Step 4: Present & Asset Management
+### Step 5: Present & Asset Management
 
 - Always include the **Asset Manager UI URL**:
   > 🔗 **Asset Manager UI:** [http://localhost:49152](http://localhost:49152) — *Browse captures, inspect file sizes, and delete assets directly from disk to prevent bloat.*
