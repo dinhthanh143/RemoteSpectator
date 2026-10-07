@@ -387,6 +387,170 @@ async def spectator_compare(
         
     return "\n".join(msg)
 
+import subprocess
+
+@mcp.tool()
+async def spectator_record(
+    url: str,
+    duration_seconds: int = 3,
+    click_selector: Optional[str] = None,
+    hover_selector: Optional[str] = None,
+    viewport: str = "desktop",
+    browser: str = "chromium",
+    profile: Optional[str] = None,
+    format: str = "mp4",
+    output_filename: Optional[str] = None
+) -> str:
+    """
+    Records an atomic interaction video or animated clip of the specified URL.
+    - duration_seconds: recording timer in seconds (default 3, capped at 20)
+    - click_selector: optional selector to click before/during recording
+    - hover_selector: optional selector to hover before/during recording
+    - format: 'mp4' (universal H.264, default), 'webm', or 'gif'
+    - browser: 'chromium', 'chrome', or 'brave'
+    - profile: email or profile name to use authenticated session
+    """
+    duration = max(1, min(int(duration_seconds), 20))
+    clean_viewport = viewport.lower() if viewport.lower() in VIEWPORTS else "desktop"
+    vp_config = VIEWPORTS[clean_viewport]
+    b_name = browser.lower().strip()
+    target_format = format.lower().strip()
+    if target_format not in ("mp4", "webm", "gif"):
+        target_format = "mp4"
+
+    executable_path = None
+    if b_name == "chrome" and os.path.exists(CHROME_EXE):
+        executable_path = CHROME_EXE
+    elif b_name == "brave" and os.path.exists(BRAVE_EXE):
+        executable_path = BRAVE_EXE
+
+    matched_profile_folder = resolve_profile(profile, b_name) if profile else None
+    
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    temp_video_dir = tempfile.mkdtemp(prefix="spectator_video_")
+    
+    if output_filename:
+        base_name = output_filename if not output_filename.endswith(f".{target_format}") else output_filename[:-len(target_format)-1]
+    else:
+        prefix = f"{profile[:10]}_" if profile else ""
+        base_name = f"record_{prefix}{clean_viewport}_{timestamp}"
+
+    final_filepath = os.path.join(CAPTURES_DIR, f"{base_name}.{target_format}")
+    page_title = "Untitled"
+
+    try:
+        async with async_playwright() as p:
+            launch_args = {
+                "record_video_dir": temp_video_dir,
+                "record_video_size": {"width": vp_config["width"], "height": vp_config["height"]}
+            }
+
+            if matched_profile_folder or b_name in ("chrome", "brave"):
+                source_user_data = BRAVE_USER_DATA if b_name == "brave" else CHROME_USER_DATA
+                target_profile_dir = matched_profile_folder or "Default"
+                temp_profile_dir = tempfile.mkdtemp(prefix="spectator_profile_")
+                src_p = os.path.join(source_user_data, target_profile_dir)
+                dst_p = os.path.join(temp_profile_dir, "Default")
+                
+                if os.path.exists(src_p):
+                    for item in ["Cookies", "Network", "Local Storage", "Session Storage"]:
+                        src_item = os.path.join(src_p, item)
+                        dst_item = os.path.join(dst_p, item)
+                        if os.path.isfile(src_item):
+                            os.makedirs(dst_p, exist_ok=True)
+                            shutil.copy2(src_item, dst_item)
+                        elif os.path.isdir(src_item):
+                            shutil.copytree(src_item, dst_item, dirs_exist_ok=True)
+
+                context = await p.chromium.launch_persistent_context(
+                    user_data_dir=temp_profile_dir,
+                    executable_path=executable_path,
+                    headless=True,
+                    viewport={"width": vp_config["width"], "height": vp_config["height"]},
+                    is_mobile=vp_config.get("is_mobile", False),
+                    has_touch=vp_config.get("has_touch", False),
+                    args=["--disable-blink-features=AutomationControlled"],
+                    **launch_args
+                )
+                page = context.pages[0] if context.pages else await context.new_page()
+            else:
+                temp_profile_dir = None
+                browser_inst = await p.chromium.launch(headless=True)
+                context = await browser_inst.new_context(
+                    viewport={"width": vp_config["width"], "height": vp_config["height"]},
+                    is_mobile=vp_config.get("is_mobile", False),
+                    has_touch=vp_config.get("has_touch", False),
+                    **launch_args
+                )
+                page = await context.new_page()
+
+            try:
+                await page.goto(url, wait_until="networkidle", timeout=15000)
+            except Exception:
+                await page.goto(url, wait_until="load", timeout=15000)
+
+            page_title = await page.title()
+
+            if hover_selector:
+                try:
+                    await page.wait_for_selector(hover_selector, timeout=4000)
+                    await page.hover(hover_selector)
+                except Exception as e:
+                    print(f"Hover selector warning: {e}", file=sys.stderr)
+
+            if click_selector:
+                try:
+                    await page.wait_for_selector(click_selector, timeout=4000)
+                    await page.click(click_selector)
+                except Exception as e:
+                    print(f"Click selector warning: {e}", file=sys.stderr)
+
+            # Hold for timer duration to record live animations/transitions
+            await page.wait_for_timeout(duration * 1000)
+
+            # Context must close to flush video stream to disk
+            await context.close()
+            if temp_profile_dir:
+                shutil.rmtree(temp_profile_dir, ignore_errors=True)
+
+        # Locate raw WebM video written by Playwright
+        raw_files = [os.path.join(temp_video_dir, f) for f in os.listdir(temp_video_dir) if f.endswith(".webm")]
+        if not raw_files:
+            return f"RECORD_ERROR: Failed to capture video from {url}."
+
+        raw_webm = raw_files[0]
+
+        # Transcode via FFmpeg based on target format
+        if target_format == "webm":
+            shutil.copy2(raw_webm, final_filepath)
+        elif target_format == "mp4":
+            # H.264 with yuv420p for universal mobile and browser compatibility
+            cmd = [
+                "ffmpeg", "-y", "-i", raw_webm,
+                "-c:v", "libx264", "-pix_fmt", "yuv420p", "-movflags", "+faststart",
+                final_filepath
+            ]
+            subprocess.run(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=True)
+        elif target_format == "gif":
+            # Two-pass high quality palettegen GIF
+            palette = os.path.join(temp_video_dir, "palette.png")
+            subprocess.run(["ffmpeg", "-y", "-i", raw_webm, "-vf", "fps=12,scale=640:-1:flags=lanczos,palettegen", palette], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=True)
+            subprocess.run(["ffmpeg", "-y", "-i", raw_webm, "-i", palette, "-lavfi", "fps=12,scale=640:-1:flags=lanczos [x]; [x][1:v] paletteuse", final_filepath], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=True)
+
+    except Exception as e:
+        return f"RECORD_ERROR: {str(e)}"
+    finally:
+        shutil.rmtree(temp_video_dir, ignore_errors=True)
+
+    normalized_path = final_filepath.replace("\\", "/")
+    return (
+        f"RECORD_SUCCESS: Captured {duration}s interaction clip of '{page_title}' ({url})\n"
+        f"Format: {target_format.upper()} | Viewport: {clean_viewport} ({vp_config['width']}x{vp_config['height']})\n"
+        f"Path: {normalized_path}\n"
+        f"Asset Manager UI: http://localhost:49152"
+    )
+
+
 def _ensure_ui_server():
     try:
         from src.ui_server import start_ui_server

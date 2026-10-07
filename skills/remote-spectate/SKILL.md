@@ -152,6 +152,27 @@ Detect browser and user profile requirements from user prompt:
   ```
 - Output inline with `<agent-embed>`.
 
+#### Mode C: Interaction Clip & Animation Recording (`spectator_record`)
+- Use when the user asks to record an animation, video, GIF, or interaction (e.g. "record for 5 seconds", "record clicking the modal button"):
+  ```python
+  spectator_record(
+      url="http://localhost:<frontend_port>/<route>",
+      duration_seconds=3,              # timer in seconds (1 to 20s)
+      click_selector="#menu-toggle",   # optional: selector to click during recording
+      hover_selector=".dropdown",      # optional: selector to hover during recording
+      format="mp4",                    # 'mp4' (default, H.264), 'webm', or 'gif'
+      viewport="desktop" | "mobile",
+      browser="chrome" | "brave" | "chromium",
+      profile="<email_or_profile_name>"
+  )
+  ```
+- Generate video preview:
+  ```bash
+  python d:/BotTest/remoteSpectator/src/generate_preview.py --video "<captured_video_path>" "<target_url>" "<artifact_dir>/spectator_preview.html"
+  ```
+- Output inline with `<agent-embed src="file:///<artifact_dir>/spectator_preview.html"></agent-embed>`.
+
+
 ---
 
 ### Step 5: Present & Asset Management

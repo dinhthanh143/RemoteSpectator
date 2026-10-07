@@ -20,8 +20,10 @@ class SpectatorUIHandler(SimpleHTTPRequestHandler):
             filename = os.path.basename(parsed.path)
             filepath = os.path.join(CAPTURES_DIR, filename)
             if os.path.exists(filepath):
+                ext = filename.split(".")[-1].lower()
+                mime = "video/mp4" if ext == "mp4" else ("video/webm" if ext == "webm" else ("image/gif" if ext == "gif" else "image/png"))
                 self.send_response(200)
-                self.send_header("Content-Type", "image/png")
+                self.send_header("Content-Type", mime)
                 self.end_headers()
                 with open(filepath, "rb") as f:
                     self.wfile.write(f.read())
@@ -73,13 +75,16 @@ class SpectatorUIHandler(SimpleHTTPRequestHandler):
 
     def get_capture_files(self):
         items = []
+        valid_exts = (".png", ".jpg", ".jpeg", ".mp4", ".webm", ".gif")
         if os.path.exists(CAPTURES_DIR):
             for name in os.listdir(CAPTURES_DIR):
-                if name.endswith(".png"):
+                if any(name.lower().endswith(ext) for ext in valid_exts):
                     path = os.path.join(CAPTURES_DIR, name)
                     stat = os.stat(path)
+                    ext = name.split(".")[-1].lower()
                     items.append({
                         "name": name,
+                        "type": "video" if ext in ("mp4", "webm") else "image",
                         "size_kb": round(stat.st_size / 1024, 1),
                         "mtime": stat.st_mtime
                     })
@@ -94,16 +99,23 @@ class SpectatorUIHandler(SimpleHTTPRequestHandler):
         for f in files:
             name = f["name"]
             size = f["size_kb"]
+            is_video = f["type"] == "video"
+            
+            if is_video:
+                media_preview = f"""<video src="/captures/{name}" class="max-h-full max-w-full rounded" autoplay loop muted playsinline></video>"""
+            else:
+                media_preview = f"""<img src="/captures/{name}" class="max-h-full max-w-full object-contain rounded" loading="lazy" />"""
+
             cards.append(f"""
             <div id="card-{name}" class="bg-zinc-900 border border-zinc-800 rounded-xl overflow-hidden flex flex-col group shadow-md transition hover:border-zinc-700">
                 <div class="h-44 bg-black/40 flex items-center justify-center p-2 relative overflow-hidden">
-                    <img src="/captures/{name}" class="max-h-full max-w-full object-contain rounded" loading="lazy" />
-                    <a href="/captures/{name}" target="_blank" class="absolute top-2 right-2 bg-black/70 hover:bg-black text-xs px-2 py-1 rounded text-zinc-300 opacity-0 group-hover:opacity-100 transition">View Full</a>
+                    {media_preview}
+                    <a href="/captures/{name}" target="_blank" class="absolute top-2 right-2 bg-black/70 hover:bg-black text-xs px-2 py-1 rounded text-zinc-300 opacity-0 group-hover:opacity-100 transition">Open File</a>
                 </div>
                 <div class="p-3 flex items-center justify-between border-t border-zinc-800 bg-zinc-900/80">
                     <div class="truncate mr-2">
                         <p class="text-xs font-mono font-medium text-zinc-200 truncate" title="{name}">{name}</p>
-                        <p class="text-[11px] text-zinc-400">{size} KB</p>
+                        <p class="text-[11px] text-zinc-400">{size} KB <span class="uppercase text-[9px] px-1 py-0.2 bg-zinc-800 rounded text-zinc-400 ml-1">{name.split('.')[-1]}</span></p>
                     </div>
                     <button onclick="deleteFile('{name}')" class="px-2.5 py-1 text-xs font-medium bg-red-950/40 text-red-400 hover:bg-red-900/60 hover:text-red-300 border border-red-900/50 rounded transition">
                         Delete
@@ -111,6 +123,7 @@ class SpectatorUIHandler(SimpleHTTPRequestHandler):
                 </div>
             </div>
             """)
+
 
         cards_str = "\n".join(cards) if cards else """
         <div class="col-span-full py-16 text-center text-zinc-400">

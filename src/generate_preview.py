@@ -35,6 +35,47 @@ def generate_preview_html(image_path: str, url: str, output_html_path: str):
         out.write(html)
     print(f"Generated Single Preview: {output_html_path}")
 
+def generate_video_preview_html(video_path: str, url: str, output_html_path: str):
+    """Generates an inline video player widget with autoplay and looping."""
+    with open(video_path, "rb") as f:
+        b64 = base64.b64encode(f.read()).decode("utf-8")
+        
+    ext = video_path.split(".")[-1].lower()
+    mime = "video/mp4" if ext == "mp4" else ("video/webm" if ext == "webm" else "image/gif")
+    
+    if ext == "gif":
+        media_tag = f'<img src="data:image/gif;base64,{b64}" alt="Recording Clip" class="rounded-lg border border-[var(--border)] max-h-[380px] object-contain shadow-sm" />'
+    else:
+        media_tag = f'<video src="data:{mime};base64,{b64}" autoplay loop muted playsinline controls class="rounded-lg border border-[var(--border)] max-h-[380px] object-contain shadow-sm"></video>'
+
+    html = f"""<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="https://www.gstatic.com/antigravity/web/dev/tailwindcss.min.js"></script>
+</head>
+<body class="bg-transparent text-[var(--foreground)] antialiased p-2">
+  <div class="bg-[var(--card)] text-[var(--foreground)] border border-[var(--border)] rounded-xl overflow-hidden shadow-lg">
+    <div class="flex items-center justify-between px-4 py-2 border-b border-[var(--border)] bg-[var(--sidebar)]">
+      <div class="flex items-center space-x-2">
+        <span class="inline-block w-2.5 h-2.5 rounded-full bg-rose-500 animate-pulse"></span>
+        <span class="text-xs font-semibold tracking-wide uppercase text-[var(--muted-foreground)]">Interaction Clip ({ext.upper()})</span>
+      </div>
+      <span class="text-xs text-[var(--muted-foreground)] font-mono">{url}</span>
+    </div>
+    <div class="p-2 bg-black/15 flex justify-center">
+      {media_tag}
+    </div>
+  </div>
+</body>
+</html>"""
+
+    os.makedirs(os.path.dirname(os.path.abspath(output_html_path)), exist_ok=True)
+    with open(output_html_path, "w", encoding="utf-8") as out:
+        out.write(html)
+    print(f"Generated Video Preview: {output_html_path}")
+
+
 def generate_compare_preview_html(session_id: str, output_html_path: str):
     """Generates an interactive multi-variant comparison widget from session manifest."""
     base_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
@@ -141,9 +182,13 @@ def generate_compare_preview_html(session_id: str, output_html_path: str):
 if __name__ == "__main__":
     if len(sys.argv) == 4 and sys.argv[1] == "--session":
         generate_compare_preview_html(sys.argv[2], sys.argv[3])
+    elif len(sys.argv) == 5 and sys.argv[1] == "--video":
+        generate_video_preview_html(sys.argv[2], sys.argv[3], sys.argv[4])
     elif len(sys.argv) == 4:
         generate_preview_html(sys.argv[1], sys.argv[2], sys.argv[3])
     else:
         print("Usage:")
         print("  python generate_preview.py <img_path> <url> <out_html>")
+        print("  python generate_preview.py --video <video_path> <url> <out_html>")
         print("  python generate_preview.py --session <session_id> <out_html>")
+
