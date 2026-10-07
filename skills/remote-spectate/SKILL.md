@@ -115,6 +115,11 @@ Detect browser and user profile requirements from user prompt:
 - Browser: `"chrome" | "brave" | "chromium"`
 - Profile: Email or profile identifier (e.g. `"neonlime123"`, `"neonlime123@gmail.com"`, `"Profile 35"`).
 
+#### 🌐 Live Session Auto-Attach (CDP Port 9222):
+- Spectator automatically checks if your real Chrome or Brave is already running with remote debugging (`http://127.0.0.1:9222`).
+- If detected, **it attaches directly via CDP to your live browser session**—meaning 100% genuine cookies, active logins, and zero file-lock errors without copying temp profile folders.
+- *Tip for authenticated sessions*: Launch Chrome with `chrome.exe --remote-debugging-port=9222` to let Spectator capture your exact live logged-in screen seamlessly. If CDP is not running, Spectator automatically falls back to isolated profile loading.
+
 #### Mode A: Single Snapshot (`spectator_capture`)
 - Call `spectator_capture`:
   ```python

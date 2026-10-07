@@ -189,55 +189,79 @@ async def _playwright_snap(
     matched_profile_folder = resolve_profile(profile, b_name) if profile else None
     
     async with async_playwright() as p:
-        # If user specified a real profile or browser executable
-        if matched_profile_folder or b_name in ("chrome", "brave"):
-            source_user_data = BRAVE_USER_DATA if b_name == "brave" else CHROME_USER_DATA
-            target_profile_dir = matched_profile_folder or "Default"
-            
-            # Use isolated shadow user-data copy to avoid Windows process lock conflicts
-            temp_profile_dir = tempfile.mkdtemp(prefix="spectator_profile_")
-            src_p = os.path.join(source_user_data, target_profile_dir)
-            dst_p = os.path.join(temp_profile_dir, "Default")
-            
-            # Copy essential session files (Cookies, Network, Local Storage)
-            def safe_copy(src, dst):
-                try:
-                    if os.path.isfile(src):
-                        os.makedirs(os.path.dirname(dst), exist_ok=True)
-                        shutil.copy2(src, dst)
-                    elif os.path.isdir(src):
-                        os.makedirs(dst, exist_ok=True)
-                        for entry in os.scandir(src):
-                            s = os.path.join(src, entry.name)
-                            d = os.path.join(dst, entry.name)
-                            safe_copy(s, d)
-                except Exception:
-                    pass
+        # Strategy 1: If Chrome/Brave is running with remote debugging port (9222 or custom), connect directly via CDP
+        cdp_connected = False
+        context = None
+        for port in [9222, 9223]:
+            try:
+                browser = await p.chromium.connect_over_cdp(f"http://127.0.0.1:{port}", timeout=1000)
+                # Find an existing page or use default context
+                contexts = browser.contexts
+                if contexts:
+                    context = contexts[0]
+                    # Check if matching page already open
+                    page = None
+                    for pg in context.pages:
+                        if url in pg.url or (pg.url != "about:blank" and url.split("/")[2] in pg.url):
+                            page = pg
+                            break
+                    if not page:
+                        page = await context.new_page()
+                    cdp_connected = True
+                    break
+            except Exception:
+                pass
 
-            if os.path.exists(src_p):
-                for item in ["Cookies", "Network", "Local Storage", "Session Storage"]:
-                    src_item = os.path.join(src_p, item)
-                    dst_item = os.path.join(dst_p, item)
-                    safe_copy(src_item, dst_item)
+        if not cdp_connected:
+            # Strategy 2: If user specified a real profile or browser executable
+            if matched_profile_folder or b_name in ("chrome", "brave"):
+                source_user_data = BRAVE_USER_DATA if b_name == "brave" else CHROME_USER_DATA
+                target_profile_dir = matched_profile_folder or "Default"
+                
+                # Use isolated shadow user-data copy to avoid Windows process lock conflicts
+                temp_profile_dir = tempfile.mkdtemp(prefix="spectator_profile_")
+                src_p = os.path.join(source_user_data, target_profile_dir)
+                dst_p = os.path.join(temp_profile_dir, "Default")
+                
+                # Copy essential session files (Cookies, Network, Local Storage)
+                def safe_copy(src, dst):
+                    try:
+                        if os.path.isfile(src):
+                            os.makedirs(os.path.dirname(dst), exist_ok=True)
+                            shutil.copy2(src, dst)
+                        elif os.path.isdir(src):
+                            os.makedirs(dst, exist_ok=True)
+                            for entry in os.scandir(src):
+                                s = os.path.join(src, entry.name)
+                                d = os.path.join(dst, entry.name)
+                                safe_copy(s, d)
+                    except Exception:
+                        pass
 
-            context = await p.chromium.launch_persistent_context(
-                user_data_dir=temp_profile_dir,
-                executable_path=executable_path,
-                headless=True,
-                viewport={"width": vp_config["width"], "height": vp_config["height"]},
-                is_mobile=vp_config.get("is_mobile", False),
-                has_touch=vp_config.get("has_touch", False),
-                args=["--disable-blink-features=AutomationControlled"]
-            )
-            page = context.pages[0] if context.pages else await context.new_page()
-        else:
-            browser = await p.chromium.launch(headless=True)
-            context = await browser.new_context(
-                viewport={"width": vp_config["width"], "height": vp_config["height"]},
-                is_mobile=vp_config.get("is_mobile", False),
-                has_touch=vp_config.get("has_touch", False)
-            )
-            page = await context.new_page()
+                if os.path.exists(src_p):
+                    for item in ["Cookies", "Network", "Local Storage", "Session Storage"]:
+                        src_item = os.path.join(src_p, item)
+                        dst_item = os.path.join(dst_p, item)
+                        safe_copy(src_item, dst_item)
+
+                context = await p.chromium.launch_persistent_context(
+                    user_data_dir=temp_profile_dir,
+                    executable_path=executable_path,
+                    headless=True,
+                    viewport={"width": vp_config["width"], "height": vp_config["height"]},
+                    is_mobile=vp_config.get("is_mobile", False),
+                    has_touch=vp_config.get("has_touch", False),
+                    args=["--disable-blink-features=AutomationControlled"]
+                )
+                page = context.pages[0] if context.pages else await context.new_page()
+            else:
+                browser = await p.chromium.launch(headless=True)
+                context = await browser.new_context(
+                    viewport={"width": vp_config["width"], "height": vp_config["height"]},
+                    is_mobile=vp_config.get("is_mobile", False),
+                    has_touch=vp_config.get("has_touch", False)
+                )
+                page = await context.new_page()
 
         try:
             await page.goto(url, wait_until="networkidle", timeout=15000)
