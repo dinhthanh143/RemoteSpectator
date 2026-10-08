@@ -17,8 +17,8 @@ Thumbs.db
 .idea/
 
 # Captured media & local sessions (user-specific runtime artifacts)
-.spectator/captures/
-.spectator/sessions/
+.spectator/
+real_chrome_new_size.png
 
 # Temporary files
 *.tmp

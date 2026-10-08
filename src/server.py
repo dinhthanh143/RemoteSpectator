@@ -32,6 +32,8 @@ BRAVE_EXE = r"C:\Program Files\BraveSoftware\Brave-Browser\Application\brave.exe
 
 os.makedirs(CAPTURES_DIR, exist_ok=True)
 os.makedirs(SESSIONS_DIR, exist_ok=True)
+STORAGE_STATES_DIR = os.path.join(BASE_DIR, ".spectator", "storage_states")
+os.makedirs(STORAGE_STATES_DIR, exist_ok=True)
 
 import difflib
 
@@ -90,6 +92,45 @@ def resolve_profile(target_query: Optional[str], browser_name: str = "chrome") -
     except Exception:
         pass
     return None
+
+
+def resolve_storage_state(profile_query: Optional[str] = None, explicit_path: Optional[str] = None) -> Optional[str]:
+    """Finds an existing Playwright storage_state JSON file for the given profile or fallback."""
+    if explicit_path and os.path.exists(explicit_path):
+        return explicit_path
+
+    if not profile_query:
+        return None
+
+    clean_q = profile_query.strip().lower()
+    if clean_q in ("clean", "none", "guest", "anonymous", "incognito"):
+        return None
+
+    candidates = [
+        os.path.join(STORAGE_STATES_DIR, f"{profile_query}.json"),
+        os.path.join(STORAGE_STATES_DIR, f"{clean_q}.json"),
+        os.path.join(BASE_DIR, ".spectator", f"storage_state_{profile_query}.json"),
+        os.path.join(BASE_DIR, ".spectator", f"storage_state_{clean_q}.json"),
+    ]
+    if any(w in clean_q for w in ["jikkei", "sama", "neonlime0987", "profile 48"]):
+        candidates.extend([
+            os.path.join(BASE_DIR, ".spectator", "storage_state_jikkeiSama.json"),
+            os.path.join(BASE_DIR, ".spectator", "storage_state_jikkeiSama1.json"),
+            os.path.join(STORAGE_STATES_DIR, "jikkeiSama.json"),
+            os.path.join(BASE_DIR, ".spectator", "storage_state.json"),
+        ])
+
+    if clean_q in ("default", "auth", "authenticated"):
+        candidates.extend([
+            os.path.join(STORAGE_STATES_DIR, "default.json"),
+            os.path.join(BASE_DIR, ".spectator", "storage_state.json"),
+        ])
+
+    for c in candidates:
+        if os.path.exists(c):
+            return c
+    return None
+
 
 
 def _get_session_file(session_id: str) -> str:
@@ -173,7 +214,8 @@ async def _playwright_snap(
     full_page: bool = False,
     wait_selector: Optional[str] = None,
     browser_name: str = "chromium",
-    profile: Optional[str] = None
+    profile: Optional[str] = None,
+    storage_state: Optional[str] = None
 ) -> str:
     clean_viewport = viewport.lower() if viewport.lower() in VIEWPORTS else "desktop"
     vp_config = VIEWPORTS[clean_viewport]
@@ -187,16 +229,19 @@ async def _playwright_snap(
         executable_path = BRAVE_EXE
 
     matched_profile_folder = resolve_profile(profile, b_name) if profile else None
-    
+    resolved_storage_state = resolve_storage_state(profile, storage_state)
+
     async with async_playwright() as p:
         # Strategy 1: If Chrome/Brave is running with remote debugging port (9222 or custom), connect directly via CDP
         cdp_connected = False
         context = None
+        browser = None
+        cdp_page_created = False
         for port in [9222, 9223]:
             try:
-                browser = await p.chromium.connect_over_cdp(f"http://127.0.0.1:{port}", timeout=1000)
+                cdp_browser = await p.chromium.connect_over_cdp(f"http://127.0.0.1:{port}", timeout=1000)
                 # Find an existing page or use default context
-                contexts = browser.contexts
+                contexts = cdp_browser.contexts
                 if contexts:
                     context = contexts[0]
                     # Check if matching page already open
@@ -207,14 +252,29 @@ async def _playwright_snap(
                             break
                     if not page:
                         page = await context.new_page()
+                        cdp_page_created = True
                     cdp_connected = True
                     break
             except Exception:
                 pass
 
         if not cdp_connected:
-            # Strategy 2: If user specified a real profile or browser executable
-            if matched_profile_folder or b_name in ("chrome", "brave"):
+            # Strategy 2: Playwright storage_state (Option 1)
+            if resolved_storage_state:
+                browser = await p.chromium.launch(
+                    headless=True,
+                    executable_path=executable_path,
+                    args=["--disable-blink-features=AutomationControlled"]
+                )
+                context = await browser.new_context(
+                    storage_state=resolved_storage_state,
+                    viewport={"width": vp_config["width"], "height": vp_config["height"]},
+                    is_mobile=vp_config.get("is_mobile", False),
+                    has_touch=vp_config.get("has_touch", False)
+                )
+                page = await context.new_page()
+            elif matched_profile_folder or b_name in ("chrome", "brave"):
+                # Strategy 3: Real profile folder clone
                 source_user_data = BRAVE_USER_DATA if b_name == "brave" else CHROME_USER_DATA
                 target_profile_dir = matched_profile_folder or "Default"
                 
@@ -274,13 +334,31 @@ async def _playwright_snap(
             except Exception as e:
                 print(f"Selector timeout: {e}", file=sys.stderr)
 
+        # Wait for avatar/image elements to finish loading and rendering
+        try:
+            await page.wait_for_selector(".jk-user-avatar-img", timeout=5000)
+            await page.wait_for_function(
+                "() => { const img = document.querySelector('.jk-user-avatar-img'); return img && img.complete && img.naturalWidth > 0; }",
+                timeout=5000
+            )
+        except Exception:
+            pass
+
+        await page.wait_for_timeout(1000)
+        os.makedirs(os.path.dirname(os.path.abspath(filepath)), exist_ok=True)
         await page.screenshot(path=filepath, full_page=full_page)
         title = await page.title()
-        await context.close()
-        
-        # Cleanup temporary shadow profile if created
-        if matched_profile_folder or b_name in ("chrome", "brave"):
-            shutil.rmtree(temp_profile_dir, ignore_errors=True)
+
+        if cdp_connected:
+            if cdp_page_created:
+                await page.close()
+        else:
+            await context.close()
+            if browser:
+                await browser.close()
+            # Cleanup temporary shadow profile if created
+            if (not resolved_storage_state) and (matched_profile_folder or b_name in ("chrome", "brave")):
+                shutil.rmtree(temp_profile_dir, ignore_errors=True)
             
         return title
 
@@ -292,12 +370,14 @@ async def spectator_capture(
     wait_selector: Optional[str] = None,
     browser: str = "chromium",
     profile: Optional[str] = None,
+    storage_state: Optional[str] = None,
     output_filename: Optional[str] = None
 ) -> str:
     """
     Captures a visual snapshot of the specified URL.
     - browser: 'chromium' (default clean), 'chrome', or 'brave'
     - profile: email or profile name (e.g. 'neonlime123@gmail.com') to use authenticated session/cookies
+    - storage_state: optional path to Playwright storage_state JSON file
     - viewport: 'desktop', 'mobile', or 'tablet'
     """
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -305,11 +385,12 @@ async def spectator_capture(
     
     if output_filename:
         filename = output_filename if output_filename.endswith(".png") else f"{output_filename}.png"
+        target_filepath = filename if os.path.isabs(filename) else os.path.join(CAPTURES_DIR, filename)
     else:
         prefix = f"{profile[:10]}_" if profile else ""
         filename = f"capture_{prefix}{clean_viewport}_{timestamp}.png"
+        target_filepath = os.path.join(CAPTURES_DIR, filename)
         
-    target_filepath = os.path.join(CAPTURES_DIR, filename)
     title = await _playwright_snap(
         url=url,
         filepath=target_filepath,
@@ -317,7 +398,8 @@ async def spectator_capture(
         full_page=full_page,
         wait_selector=wait_selector,
         browser_name=browser,
-        profile=profile
+        profile=profile,
+        storage_state=storage_state
     )
     normalized_path = target_filepath.replace("\\", "/")
     return f"CAPTURED_SUCCESS: Saved visual snapshot of '{title}' ({url})\nBrowser: {browser} (Profile: {profile or 'Clean/None'})\nPath: {normalized_path}"
@@ -398,6 +480,7 @@ async def spectator_record(
     viewport: str = "desktop",
     browser: str = "chromium",
     profile: Optional[str] = None,
+    storage_state: Optional[str] = None,
     format: str = "mp4",
     output_filename: Optional[str] = None
 ) -> str:
@@ -409,6 +492,7 @@ async def spectator_record(
     - format: 'mp4' (universal H.264, default), 'webm', or 'gif'
     - browser: 'chromium', 'chrome', or 'brave'
     - profile: email or profile name to use authenticated session
+    - storage_state: optional path to Playwright storage_state JSON file
     """
     duration = max(1, min(int(duration_seconds), 20))
     clean_viewport = viewport.lower() if viewport.lower() in VIEWPORTS else "desktop"
@@ -425,17 +509,20 @@ async def spectator_record(
         executable_path = BRAVE_EXE
 
     matched_profile_folder = resolve_profile(profile, b_name) if profile else None
+    resolved_storage_state = resolve_storage_state(profile, storage_state)
     
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     temp_video_dir = tempfile.mkdtemp(prefix="spectator_video_")
     
     if output_filename:
         base_name = output_filename if not output_filename.endswith(f".{target_format}") else output_filename[:-len(target_format)-1]
+        final_filepath = f"{base_name}.{target_format}" if os.path.isabs(base_name) else os.path.join(CAPTURES_DIR, f"{base_name}.{target_format}")
     else:
         prefix = f"{profile[:10]}_" if profile else ""
         base_name = f"record_{prefix}{clean_viewport}_{timestamp}"
+        final_filepath = os.path.join(CAPTURES_DIR, f"{base_name}.{target_format}")
 
-    final_filepath = os.path.join(CAPTURES_DIR, f"{base_name}.{target_format}")
+    os.makedirs(os.path.dirname(os.path.abspath(final_filepath)), exist_ok=True)
     page_title = "Untitled"
 
     try:
@@ -445,22 +532,49 @@ async def spectator_record(
                 "record_video_size": {"width": vp_config["width"], "height": vp_config["height"]}
             }
 
-            if matched_profile_folder or b_name in ("chrome", "brave"):
+            temp_profile_dir = None
+            browser_inst = None
+
+            if resolved_storage_state:
+                browser_inst = await p.chromium.launch(
+                    headless=True,
+                    executable_path=executable_path,
+                    args=["--disable-blink-features=AutomationControlled"]
+                )
+                context = await browser_inst.new_context(
+                    storage_state=resolved_storage_state,
+                    viewport={"width": vp_config["width"], "height": vp_config["height"]},
+                    is_mobile=vp_config.get("is_mobile", False),
+                    has_touch=vp_config.get("has_touch", False),
+                    **launch_args
+                )
+                page = await context.new_page()
+            elif matched_profile_folder or b_name in ("chrome", "brave"):
                 source_user_data = BRAVE_USER_DATA if b_name == "brave" else CHROME_USER_DATA
                 target_profile_dir = matched_profile_folder or "Default"
                 temp_profile_dir = tempfile.mkdtemp(prefix="spectator_profile_")
                 src_p = os.path.join(source_user_data, target_profile_dir)
                 dst_p = os.path.join(temp_profile_dir, "Default")
                 
+                def safe_copy(src, dst):
+                    try:
+                        if os.path.isfile(src):
+                            os.makedirs(os.path.dirname(dst), exist_ok=True)
+                            shutil.copy2(src, dst)
+                        elif os.path.isdir(src):
+                            os.makedirs(dst, exist_ok=True)
+                            for entry in os.scandir(src):
+                                s = os.path.join(src, entry.name)
+                                d = os.path.join(dst, entry.name)
+                                safe_copy(s, d)
+                    except Exception:
+                        pass
+
                 if os.path.exists(src_p):
                     for item in ["Cookies", "Network", "Local Storage", "Session Storage"]:
                         src_item = os.path.join(src_p, item)
                         dst_item = os.path.join(dst_p, item)
-                        if os.path.isfile(src_item):
-                            os.makedirs(dst_p, exist_ok=True)
-                            shutil.copy2(src_item, dst_item)
-                        elif os.path.isdir(src_item):
-                            shutil.copytree(src_item, dst_item, dirs_exist_ok=True)
+                        safe_copy(src_item, dst_item)
 
                 context = await p.chromium.launch_persistent_context(
                     user_data_dir=temp_profile_dir,
@@ -474,7 +588,6 @@ async def spectator_record(
                 )
                 page = context.pages[0] if context.pages else await context.new_page()
             else:
-                temp_profile_dir = None
                 browser_inst = await p.chromium.launch(headless=True)
                 context = await browser_inst.new_context(
                     viewport={"width": vp_config["width"], "height": vp_config["height"]},
@@ -510,6 +623,8 @@ async def spectator_record(
 
             # Context must close to flush video stream to disk
             await context.close()
+            if browser_inst:
+                await browser_inst.close()
             if temp_profile_dir:
                 shutil.rmtree(temp_profile_dir, ignore_errors=True)
 
